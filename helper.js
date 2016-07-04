@@ -20,6 +20,7 @@ var _ = require('lodash');
 var solc = require('solc');
 
 function compile(dir, files) {
+  console.log('Compiling files: ' + JSON.stringify(files));
   var input = _(files)
     .map(function(file) {
       return [file, fs.readFileSync(dir + '/' + file).toString()];
@@ -35,6 +36,8 @@ function compile(dir, files) {
   });
   
   if (output.errors) throw output.errors;
+  
+  console.log('Comilation Success\n');
   return output;
 }
 

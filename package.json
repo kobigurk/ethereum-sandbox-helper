@@ -1,6 +1,6 @@
 {
   "name": "ethereum-sandbox-helper",
-  "version": "1.0.0-beta1",
+  "version": "1.0.0-beta2",
   "license": "AGPL-3.0",
   "main": "helper.js",
   "dependencies": {
