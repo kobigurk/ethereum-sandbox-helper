@@ -18,6 +18,7 @@
 var fs = require('fs');
 var _ = require('lodash');
 var solc = require('solc');
+var SolidityEvent = require("web3/lib/web3/event.js");
 
 function compile(dir, files) {
   console.log('Compiling files: ' + JSON.stringify(files));
@@ -80,6 +81,23 @@ function hexToString(hex) {
   );
 }
 
+function parseEventLog(abi, eventLog) {
+  var parsed;
+  var topics = eventLog.topics;
+  abi
+    .filter(function (abiEntry) {
+      return abiEntry.type == 'event';
+    })
+    .find(function (abiEntry) {
+      var solidityEvent = new SolidityEvent(null, abiEntry, null);
+      if (solidityEvent.signature() == topics[0].replace('0x', '')) {
+        parsed = solidityEvent.decode(eventLog);
+      }
+  });
+  return parsed;
+}
+ 
+
 function removeTrailingZeroes(str) {
   if (str.length % 2 !== 0) throw 'Wrong hex str: ' + str;
   
@@ -112,5 +130,6 @@ module.exports = {
   compile: compile,
   waitForReceipt: waitForReceipt,
   waitForSandboxReceipt: waitForSandboxReceipt,
-  hexToString: hexToString
+  hexToString: hexToString,
+  parseEventLog: parseEventLog
 };
