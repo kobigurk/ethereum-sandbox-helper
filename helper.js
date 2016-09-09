@@ -16,11 +16,51 @@
  */
 
 var fs = require('fs');
+var https = require('https');
+
+var MemoryStream = require('memorystream');
+var requireFromString = require('require-from-string');
 var _ = require('lodash');
 var solc = require('solc');
 var SolidityEvent = require("web3/lib/web3/event.js");
 
-function compile(dir, files) {
+function getSolcVersion() {
+  return solc.version();
+}
+
+function getSpecificSolc(solcVersion, cb) {
+  var solcCacheDir = '.solc_cache';
+  if (!fs.existsSync(solcCacheDir)) {
+    fs.mkdirSync(solcCacheDir);
+  }
+  var solcCachePath = solcCacheDir + '/' + solcVersion;
+  if (fs.existsSync(solcCachePath)) {
+    var solcContent = fs.readFileSync(solcCachePath).toString();
+    cb(null, solc.setupMethods(requireFromString(solcContent)));
+    return;
+  }
+  var mem = new MemoryStream(null, {readable: false});
+  var url = 'https://ethereum.github.io/solc-bin/bin/soljson-' + solcVersion + '.js';
+  https.get(url, function (response) {
+    if (response.statusCode !== 200) {
+      cb(new Error('Error retrieving binary: ' + response.statusMessage));
+    } else {
+      response.pipe(mem);
+      response.on('end', function () {
+        var solcContent = mem.toString();
+        fs.writeFileSync(solcCachePath, solcContent);
+        cb(null, solc.setupMethods(requireFromString(solcContent)));
+      });
+    }
+  }).on('error', function (error) {
+    cb(new Error('Error getting solc: ' + error));
+    return;
+  });
+}
+
+function compile(dir, files, specificSolc) {
+  if (!specificSolc) specificSolc = solc;
+
   console.log('Compiling files: ' + JSON.stringify(files));
   var input = _(files)
     .map(function(file) {
@@ -28,7 +68,7 @@ function compile(dir, files) {
     })
     .fromPairs()
     .value();
-  var output = solc.compile({ sources: input }, 1, function findImports(path) {
+  var output = specificSolc.compile({ sources: input }, 1, function findImports(path) {
     try {
       return { contents: fs.readFileSync(dir + '/' + path).toString() };
     } catch (e) {
@@ -128,6 +168,8 @@ function toArray(str) {
 
 module.exports = {
   compile: compile,
+  getSolcVersion: getSolcVersion,
+  getSpecificSolc: getSpecificSolc,
   waitForReceipt: waitForReceipt,
   waitForSandboxReceipt: waitForSandboxReceipt,
   hexToString: hexToString,
