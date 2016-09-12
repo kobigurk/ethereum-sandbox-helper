@@ -17,11 +17,10 @@
 
 var fs = require('fs');
 var https = require('https');
+var path = require('path');
 
-var MemoryStream = require('memorystream');
-var requireFromString = require('require-from-string');
 var _ = require('lodash');
-var solc = require('solc');
+var solc = require('./patched_solc');
 var SolidityEvent = require("web3/lib/web3/event.js");
 
 function getSolcVersion() {
@@ -35,26 +34,16 @@ function getSpecificSolc(solcVersion, cb) {
   }
   var solcCachePath = solcCacheDir + '/' + solcVersion;
   if (fs.existsSync(solcCachePath)) {
-    var solcContent = fs.readFileSync(solcCachePath).toString();
-    cb(null, solc.setupMethods(requireFromString(solcContent)));
+    cb(null, solc.loadVersionFromFilePath(path.resolve(solcCachePath)));
     return;
   }
-  var mem = new MemoryStream(null, {readable: false});
-  var url = 'https://ethereum.github.io/solc-bin/bin/soljson-' + solcVersion + '.js';
-  https.get(url, function (response) {
-    if (response.statusCode !== 200) {
-      cb(new Error('Error retrieving binary: ' + response.statusMessage));
-    } else {
-      response.pipe(mem);
-      response.on('end', function () {
-        var solcContent = mem.toString();
-        fs.writeFileSync(solcCachePath, solcContent);
-        cb(null, solc.setupMethods(requireFromString(solcContent)));
-      });
+  solc.loadRemoteVersion(solcVersion, function(err, specificSolc, solcContent) {
+    if (err) {
+      cb(new Error('Error getting solc: ' + err));
+      return;
     }
-  }).on('error', function (error) {
-    cb(new Error('Error getting solc: ' + error));
-    return;
+    fs.writeFileSync(solcCachePath, solcContent);
+    cb(null, specificSolc);
   });
 }
 
