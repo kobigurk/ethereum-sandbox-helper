@@ -65,7 +65,11 @@ function compile(dir, files, specificSolc) {
     }
   });
   
-  if (output.errors) throw output.errors;
+  if (!output.errors) output.errors = [];
+  output.warnings = output.errors.filter(x=>x.indexOf('Warning:') >= 0);
+  if (output.warnings.length > 0) console.log('Compilation warnings:\n', output.warnings.join('\n'));
+  output.errors = output.errors.filter(x=>x.indexOf('Error:') >= 0);
+  if (output.errors.length > 0) throw output.errors;
   
   console.log('Comilation Success\n');
   return output;
